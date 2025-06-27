@@ -18,17 +18,21 @@ type item struct {
 func main() {
 
 	c := colly.NewCollector(
-		colly.AllowedDomains("elitesport.ge"),
+	// colly.AllowedDomains("skyscanner.ie"),
 	)
 
 	var items []item
 
-	c.OnHTML("ul#catalog_holder div[class=catalog_list_info]", func(h *colly.HTMLElement) {
+	// c.OnHTML("div[class^='FlightsResults_dayViewItems'] div[class*='Ticket']", func(h *colly.HTMLElement) {
+	c.OnHTML("div[class^='FlightsResults_dayViewItems__NzJiY']", func(h *colly.HTMLElement) {
+		fmt.Println(h.Text)
+		fmt.Println("1")
 		item := item{
-			Name:    h.ChildText("a.catalog_list_name"),
-			Article: h.ChildText("span.catalog_list_article"),
-			Price:   h.ChildText("span.catalog_list_actual_price"),
-			ImgUrl:  h.ChildAttr(".catalog_list_img_wrap_item img", "src"),
+
+			Name: h.ChildText("a.catalog_list_name"),
+			// Article: h.ChildText("span.catalog_list_article"),
+			Price: h.ChildText("span.catalog_list_actual_price"),
+			// ImgUrl:  h.ChildAttr(".catalog_list_img_wrap_item img", "src"),
 		}
 		// fmt.Printf("Item is : %v\n", items)
 		items = append(items, item)
@@ -46,7 +50,7 @@ func main() {
 		fmt.Println(r.URL.String())
 	})
 
-	c.Visit("https://elitesport.ge/ru/mens/")
+	c.Visit("https://www.skyscanner.ie/transport/flights/bus/nap/250822/?adultsv2=1&cabinclass=economy&childrenv2=&inboundaltsenabled=false&outboundaltsenabled=false&preferdirects=false&rtn=0")
 	fmt.Println(items)
 	content, err := json.Marshal(items)
 
@@ -56,3 +60,4 @@ func main() {
 
 	os.WriteFile("products.json", content, 0644)
 }
+
