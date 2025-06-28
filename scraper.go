@@ -1,63 +1,47 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-
-	"github.com/gocolly/colly"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/geziyor/geziyor"
+	"github.com/geziyor/geziyor/client"
+	"github.com/geziyor/geziyor/export"
 )
 
-type item struct {
-	Name    string `json:"name"`
-	Article string `json:"article"`
-	Price   string `json:"price"`
-	ImgUrl  string `json:"imgurl"`
+func main() {
+	getFlights()
 }
 
-func main() {
+func getFlights() {
+	geziyor.NewGeziyor(&geziyor.Options{
+		StartRequestsFunc: func(g *geziyor.Geziyor) {
+			g.GetRendered("https://www.skyscanner.ie/transport/flights/rmo/bus/250822/?adultsv2=1&cabinclass=economy&childrenv2=&ref=home&rtn=0&preferdirects=false&outboundaltsenabled=false&inboundaltsenabled=false", g.Opt.ParseFunc)
+		},
+		// StartURLs: []string{"https://www.skyscanner.ie/transport/flights/rmo/bus/250822/?adultsv2=1&cabinclass=economy&childrenv2=&ref=home&rtn=0&preferdirects=false&outboundaltsenabled=false&inboundaltsenabled=false"},
+		ParseFunc:       skyParse,
+		Exporters:       []export.Exporter{&export.CSV{}},
+		BrowserEndpoint: "ws://localhost:9222",
+	}).Start()
+}
 
-	c := colly.NewCollector(
-	// colly.AllowedDomains("skyscanner.ie"),
-	)
-
-	var items []item
-
-	// c.OnHTML("div[class^='FlightsResults_dayViewItems'] div[class*='Ticket']", func(h *colly.HTMLElement) {
-	c.OnHTML("div[class^='FlightsResults_dayViewItems__NzJiY']", func(h *colly.HTMLElement) {
-		fmt.Println(h.Text)
-		fmt.Println("1")
-		item := item{
-
-			Name: h.ChildText("a.catalog_list_name"),
-			// Article: h.ChildText("span.catalog_list_article"),
-			Price: h.ChildText("span.catalog_list_actual_price"),
-			// ImgUrl:  h.ChildAttr(".catalog_list_img_wrap_item img", "src"),
+func skyParse(g *geziyor.Geziyor, r *client.Response) {
+	r.HTMLDoc.Find("div[class ^='FlightsTicket_container'").Each(func(i int, s *goquery.Selection) {
+		g.Exports <- map[string]interface{}{
+			"text":   s.Find("div[class ^='Ticket'").Text(),
+			"author": s.Find("small.author").Text(),
 		}
-		// fmt.Printf("Item is : %v\n", items)
-		items = append(items, item)
 	})
-
-	c.OnHTML("ul.pagin_list a.next", func(h *colly.HTMLElement) {
-
-		next_page := h.Request.AbsoluteURL(h.Attr("href"))
-		fmt.Printf(next_page)
-		c.Visit(next_page)
-
-	})
-
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println(r.URL.String())
-	})
-
-	c.Visit("https://www.skyscanner.ie/transport/flights/bus/nap/250822/?adultsv2=1&cabinclass=economy&childrenv2=&inboundaltsenabled=false&outboundaltsenabled=false&preferdirects=false&rtn=0")
-	fmt.Println(items)
-	content, err := json.Marshal(items)
-
-	if err != nil {
-		fmt.Println(err.Error())
+	if href, ok := r.HTMLDoc.Find("li.next > a").Attr("href"); ok {
+		g.Get(r.JoinURL(href), skyParse)
 	}
 
-	os.WriteFile("products.json", content, 0644)
+	//	func quotesParse(g *geziyor.Geziyor, r *client.Response) {
+	//		r.HTMLDoc.Find("div.quote").Each(func(i int, s *goquery.Selection) {
+	//			g.Exports <- map[string]interface{}{
+	//				"text":   s.Find("span.text").Text(),
+	//				"author": s.Find("small.author").Text(),
+	//			}
+	//		})
+	//		if href, ok := r.HTMLDoc.Find("li.next > a").Attr("href"); ok {
+	//			g.Get(r.JoinURL(href), quotesParse)
+	//		}
 }
-
